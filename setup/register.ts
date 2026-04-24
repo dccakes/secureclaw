@@ -42,6 +42,22 @@ interface RegisterArgs {
   sessionMode: string;
 }
 
+const DEFAULT_ASSISTANT_NAMES = ['Dobby', 'Andy'];
+
+function escapeForRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function rewriteAssistantNameInClaudeMd(content: string, assistantName: string): string {
+  let updated = content;
+  for (const defaultName of DEFAULT_ASSISTANT_NAMES) {
+    const escaped = escapeForRegex(defaultName);
+    updated = updated.replace(new RegExp(`^# ${escaped}$`, 'm'), `# ${assistantName}`);
+    updated = updated.replace(new RegExp(`You are ${escaped}`, 'g'), `You are ${assistantName}`);
+  }
+  return updated;
+}
+
 function parseArgs(args: string[]): RegisterArgs {
   const result: RegisterArgs = {
     platformId: '',
@@ -50,7 +66,7 @@ function parseArgs(args: string[]): RegisterArgs {
     folder: '',
     channel: 'discord',
     requiresTrigger: false,
-    assistantName: 'Andy',
+    assistantName: 'Dobby',
     sessionMode: 'shared',
   };
 
@@ -75,7 +91,7 @@ function parseArgs(args: string[]): RegisterArgs {
         result.requiresTrigger = false;
         break;
       case '--assistant-name':
-        result.assistantName = args[++i] || 'Andy';
+        result.assistantName = args[++i] || 'Dobby';
         break;
       case '--session-mode':
         result.sessionMode = args[++i] || 'shared';
@@ -208,8 +224,8 @@ export async function run(args: string[]): Promise<void> {
 
   // 5. Update assistant name in CLAUDE.md files if different from default
   let nameUpdated = false;
-  if (parsed.assistantName !== 'Andy') {
-    log.info('Updating assistant name', { from: 'Andy', to: parsed.assistantName });
+  if (parsed.assistantName !== 'Dobby') {
+    log.info('Updating assistant name', { from: 'Dobby', to: parsed.assistantName });
 
     const groupsDir = path.join(projectRoot, 'groups');
     const mdFiles = fs
@@ -219,8 +235,7 @@ export async function run(args: string[]): Promise<void> {
 
     for (const mdFile of mdFiles) {
       let content = fs.readFileSync(mdFile, 'utf-8');
-      content = content.replace(/^# Andy$/m, `# ${parsed.assistantName}`);
-      content = content.replace(/You are Andy/g, `You are ${parsed.assistantName}`);
+      content = rewriteAssistantNameInClaudeMd(content, parsed.assistantName);
       fs.writeFileSync(mdFile, content);
       log.info('Updated CLAUDE.md', { file: mdFile });
     }
